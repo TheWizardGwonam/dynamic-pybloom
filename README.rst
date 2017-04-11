@@ -21,12 +21,12 @@ functions.
 installation
 ============
 either clone this repository and run
-.. code-block:: python
+.. code::
 
     $ python setup.py install
 ..
 or simply
-.. code-block:: python
+.. code::
 
     $ pip install dynamic-python
 ..
