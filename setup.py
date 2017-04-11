@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 from setuptools import setup
 
-VERSION = '1.0.0'
-DESCRIPTION = "PyBloom: A Probabilistic data structure"
+VERSION = '3.0.1'
+DESCRIPTION = "Dynamic Pybloom: A Suite of Probabilistic Data Structures"
 LONG_DESCRIPTION = """
 ``dynamic-dynamic_pybloom`` is a fork of the popular https://travis-ci.org/jaybaird/python-bloomfilter repo module
 that includes a Bloom Filter data structure, an implementation of the Scalable Bloom Filter[1] and
@@ -31,7 +31,7 @@ setup(
               'probabilistic', 'set'),
     author="srf5132",
     author_email="srf5132@gmail.com",
-    url="http://github.com/srf5132/dynamic-dynamic_pybloom/",
+    url="http://github.com/srf5132/dynamic-pybloom/",
     license="MIT License",
     platforms=['any'],
     test_suite="dynamic_pybloom.tests",
