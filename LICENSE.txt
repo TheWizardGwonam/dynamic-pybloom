@@ -1,4 +1,5 @@
 Copyright (c) <2011> <Jay Baird and Bob Ippolito>
+Copyright (c) <2017> <Sam Findler>
 
 Permission is hereby granted, free of charge, to any person
 obtaining a copy of this software and associated documentation

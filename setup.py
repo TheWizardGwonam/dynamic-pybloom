@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 from setuptools import setup
 
-VERSION = '2.0.0'
+VERSION = '1.0.0'
 DESCRIPTION = "PyBloom: A Probabilistic data structure"
 LONG_DESCRIPTION = """
-pybloom-git is a Python implementation of the bloom filter probabilistic data
-structure. The module also provides a Scalable Bloom Filter that allows a
-bloom filter to grow without knowing the original set size.
+``dynamic-dynamic_pybloom`` is a fork of the popular https://travis-ci.org/jaybaird/python-bloomfilter repo module
+that includes a Bloom Filter data structure, an implementation of the Scalable Bloom Filter[1] and
+a new implementation of the Dynamic Bloom Filter[2].
 """
 
 CLASSIFIERS = filter(None, map(str.strip,
@@ -22,20 +22,20 @@ Topic :: Software Development :: Libraries :: Python Modules
 """.splitlines()))
 
 setup(
-    name="pybloom-git",
+    name="dynamic_pybloom",
     version=VERSION,
     description=DESCRIPTION,
     long_description=LONG_DESCRIPTION,
     classifiers=CLASSIFIERS,
     keywords=('data structures', 'bloom filter', 'bloom', 'filter',
               'probabilistic', 'set'),
-    author="Jay Baird",
-    author_email="jay.baird@me.com",
-    url="http://github.com/jaybaird/python-bloomfilter/",
+    author="srf5132",
+    author_email="srf5132@gmail.com",
+    url="http://github.com/srf5132/dynamic-dynamic_pybloom/",
     license="MIT License",
     platforms=['any'],
-    test_suite="pybloom-git.tests",
+    test_suite="dynamic_pybloom.tests",
     zip_safe=True,
     install_requires=['bitarray>=0.3.4'],
-    packages=['pybloom-git']
+    packages=['dynamic_pybloom']
 )

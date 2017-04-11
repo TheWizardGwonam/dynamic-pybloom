@@ -1,3 +1,12 @@
+Changes in 1.0
+==========================
+Fixed count in BloomFilter class in the case of union or intersection.
+Added DynamicBloomFilter and tests.
+
+
+
+changes bellow are for the version ported from
+
 Changes in 2.0
 ==============
 Made major corrections to the algorithms for both BloomFilter and

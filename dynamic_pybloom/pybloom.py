@@ -7,7 +7,7 @@ to other Dynamic Bloom Filter.
 
 Requires the bitarray library: http://pypi.python.org/pypi/bitarray/
 
-    >>> from pybloom-git import BloomFilter
+    >>> from dynamic_pybloom import BloomFilter
     >>> f = BloomFilter(capacity=10000, error_rate=0.001)
     >>> for i in range_fn(0, f.capacity):
     ...     _ = f.add(i)
@@ -21,7 +21,7 @@ Requires the bitarray library: http://pypi.python.org/pypi/bitarray/
     >>> (1.0 - (len(f) / float(f.capacity))) <= f.error_rate + 2e-18
     True
 
-    >>> from pybloom-git import ScalableBloomFilter
+    >>> from dynamic_pybloom import ScalableBloomFilter
     >>> sbf = ScalableBloomFilter(mode=ScalableBloomFilter.SMALL_SET_GROWTH)
     >>> count = 10000
     >>> for i in range_fn(0, count):
@@ -33,7 +33,7 @@ Requires the bitarray library: http://pypi.python.org/pypi/bitarray/
     True
     >>> (1.0 - (len(sbf) / float(count))) <= sbf.error_rate + 2e-18
     True
-    >>> from pybloom-git import ScalableBloomFilter
+    >>> from dynamic_pybloom import ScalableBloomFilter
     >>> sbf = DynamicBloomFilter()
     >>> count = 10000
     >>> for i in range_fn(0, count):
@@ -48,13 +48,13 @@ Requires the bitarray library: http://pypi.python.org/pypi/bitarray/
 from __future__ import absolute_import
 import math
 import hashlib
-from pybloom.utils import range_fn, is_string_io, running_python_3
+from dynamic_pybloom.utils import range_fn, is_string_io, running_python_3
 from struct import unpack, pack, calcsize
 
 try:
     import bitarray
 except ImportError:
-    raise ImportError('pybloom-git requires bitarray >= 0.3.4')
+    raise ImportError('dynamic_pybloom requires bitarray >= 0.3.4')
 
 __version__ = '3.0'
 __author__ = "Jay Baird <jay.baird@me.com>, Bob Ippolito <bob@redivi.com>,\
@@ -112,7 +112,7 @@ def make_hashfuncs(num_slices, num_bits):
 
 
 class BloomFilter(object):
-    FILE_FMT = b'<dQQQQ'
+    FILE_FMT = b'<dQQQ'
 
     def __init__(self, capacity, error_rate=0.001):
         """Implements a space-efficient probabilistic data structure
@@ -147,17 +147,16 @@ class BloomFilter(object):
         bits_per_slice = int(math.ceil(
             (capacity * abs(math.log(error_rate))) /
             (num_slices * (math.log(2) ** 2))))
-        self._setup(error_rate, num_slices, bits_per_slice, capacity, 0)
+        self._setup(error_rate, num_slices, bits_per_slice, capacity)
         self.bitarray = bitarray.bitarray(self.num_bits, endian='little')
         self.bitarray.setall(False)
 
-    def _setup(self, error_rate, num_slices, bits_per_slice, capacity, count):
+    def _setup(self, error_rate, num_slices, bits_per_slice, capacity):
         self.error_rate = error_rate
         self.num_slices = num_slices
         self.bits_per_slice = bits_per_slice
         self.capacity = capacity
         self.num_bits = num_slices * bits_per_slice
-        self.count = count
         self.make_hashes = make_hashfuncs(self.num_slices, self.bits_per_slice)
 
     def __contains__(self, key):
@@ -211,13 +210,15 @@ class BloomFilter(object):
             offset += bits_per_slice
 
         if skip_check:
-            self.count += 1
             return False
         elif not found_all_bits:
-            self.count += 1
             return False
         else:
             return True
+
+    @property
+    def count(self):
+        return math.ceil(self.bitarray.count() / self.num_slices)
 
     def copy(self):
         """Return a copy of this bloom filter.
@@ -259,7 +260,7 @@ have equal capacity and error rate")
         are written as machine values. This is much more space
         efficient than pickling the object."""
         f.write(pack(self.FILE_FMT, self.error_rate, self.num_slices,
-                     self.bits_per_slice, self.capacity, self.count))
+                     self.bits_per_slice, self.capacity))
         (f.write(self.bitarray.tobytes()) if is_string_io(f)
          else self.bitarray.tofile(f))
 
@@ -446,7 +447,7 @@ class ScalableBloomFilter(object):
 
 
 class DynamicBloomFilter(object):
-    FILE_FMT = '<idQd'
+    FILE_FMT = '<iQd'
 
     def __init__(self, base_capacity=100, max_capacity=1000000, error_rate=0.001):
 
@@ -465,7 +466,7 @@ class DynamicBloomFilter(object):
             number of items is under the max_capacity, the error_rate will remain beneath
             this level.
 
-        >>> b = ScalableBloomFilter(base_capacity=512, max_capacity=512*5, error_rate=0.001)
+        >>> b = DynamicBloomFilter(base_capacity=512, max_capacity=512*5, error_rate=0.001)
         >>> b.add("test")
         False
         >>> "test" in b
@@ -482,7 +483,7 @@ class DynamicBloomFilter(object):
         self.filters = []
 
     def _setup(self, base_capacity, max_capacity, error_rate):
-        self.individual_error_rate = 1 - math.exp(math.ln(1 - error_rate)/math.ceil(max_capacity/base_capacity))
+        self.individual_error_rate = 1 - math.exp(math.log(1 - error_rate)/math.ceil(max_capacity/base_capacity))
         self.max_error_rate = error_rate
         self.max_capacity = max_capacity
         self.base_capacity = base_capacity
@@ -490,7 +491,7 @@ class DynamicBloomFilter(object):
     def __contains__(self, key):
         """Tests a key's membership in this bloom filter.
 
-        >>> b = ScalableBloomFilter(base_capacity=512, max_capacity=512*5, error_rate=0.001)
+        >>> b = DynamicBloomFilter(base_capacity=512, max_capacity=512*5, error_rate=0.001)
         >>> b.add("hello")
         False
         >>> "hello" in b
@@ -507,7 +508,7 @@ class DynamicBloomFilter(object):
         If the key already exists in this filter it will return True.
         Otherwise False.
 
-        >>> b = ScalableBloomFilter(base_capacity=512, max_capacity=512*5, error_rate=0.001)
+        >>> b = DynamicBloomFilter(base_capacity=512, max_capacity=512*5, error_rate=0.001)
         >>> b.add("hello")
         False
         >>> b.add("hello")
@@ -567,10 +568,10 @@ class DynamicBloomFilter(object):
                                        max_capacity=self.max_capacity,
                                        error_rate=self.max_error_rate)
         for bloom_filter in self.filters:
-            new_bloom.filters.append(BloomFilter(capcity=self.base_capacity,
-                                                 error_rate=self.individual_error_rate))
+            bloom = BloomFilter(capacity=self.base_capacity, error_rate=self.individual_error_rate)
             for other_filter in other.filters:
-                new_bloom.filters[-1].bitarray = filter.bitarray | (bloom_filter.bitarray & other_filter.bitarray)
+                bloom = bloom or (bloom_filter and other_filter)
+            new_bloom.filters.append(bloom)
         return new_bloom
 
     def __and__(self, other):

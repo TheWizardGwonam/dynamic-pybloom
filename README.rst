@@ -1,18 +1,16 @@
-pybloom
-=======
+dynamic-pybloom
+===============
 
-.. image:: https://travis-ci.org/jaybaird/python-bloomfilter.svg?branch=master
-    :target: https://travis-ci.org/jaybaird/python-bloomfilter
-
-``pybloom`` is a module that includes a Bloom Filter data structure along with
-an implmentation of Scalable Bloom Filters as discussed in:
-
-P. Almeida, C.Baquero, N. Preguiça, D. Hutchison, Scalable Bloom Filters,
-(GLOBECOM 2007), IEEE, 2007.
+``dynamic-pybloom`` is a fork of the popular https://travis-ci.org/jaybaird/python-bloomfilter repo module
+that includes a Bloom Filter data structure, an implementation of the Scalable Bloom Filter[1] and
+a new implementation of the Dynamic Bloom Filter[2].
 
 Bloom filters are great if you understand what amount of bits you need to set
 aside early to store your entire set. Scalable Bloom Filters allow your bloom
 filter bits to grow as a function of false positive probability and size.
+Dynamic Bloom Filters allow your bloom filters to grow like a Scalable
+Bloom Filter, but they preserve the ability to intersect or union with
+one another.
 
 A filter is "full" when at capacity: M * ((ln 2 ^ 2) / abs(ln p)), where M
 is the number of bits and p is the false positive probability. When capacity
@@ -50,3 +48,11 @@ functions.
     # len(sbf) may not equal the entire input length. 0.01% error is well
     # below the default 0.1% error threshold. As the capacity goes up, the
     # error will approach 0.1%.
+
+..
+references
+==========
+[1] P. Almeida, C.Baquero, N. Preguiça, D. Hutchison, Scalable Bloom Filters,
+(GLOBECOM 2007), IEEE, 2007. http://www.sciencedirect.com/science/article/pii/S0020019006003127
+[2] http://ieeexplore.ieee.org/document/4796196/?reload=true
+
