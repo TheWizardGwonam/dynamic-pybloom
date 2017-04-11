@@ -220,7 +220,7 @@ class BloomFilter(object):
     def count(self):
         # from http://www.l3s.de/~papapetrou/publications/Bloomfilters-DAPD.pdf
         return math.log(1 - float(self.bitarray.count())/len(self.bitarray)) \
-                /(self.num_slices*math.log(1 - float(1/len(self.bitarray))))
+                /(self.num_slices*math.log(1 - 1./len(self.bitarray)))
 
     def copy(self):
         """Return a copy of this bloom filter.
