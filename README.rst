@@ -26,7 +26,7 @@ either clone this repository and run
 ..
 or simply
 
-    $ pip install dynamic-python
+    $ pip install dynamic-pybloom
 ..
 
 examples
