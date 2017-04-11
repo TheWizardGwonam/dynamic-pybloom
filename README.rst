@@ -22,10 +22,12 @@ installation
 ============
 either clone this repository and run
 .. code-block:: bash
+
 python setup.py install
 ..
 or simply
 .. code-block:: bash
+
 pip install dynamic-python
 ..
 
