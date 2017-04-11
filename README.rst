@@ -18,9 +18,22 @@ is reached a new filter is then created exponentially larger than the last
 with a tighter probability of false positives and a larger number of hash
 functions.
 
+installation
+============
+either clone this repository and run
+.. code-block:: bash
+python setup.py install
+..
+or simply
+.. code-block:: bash
+pip install dynamic-python
+..
+
+examples
+========
 .. code-block:: python
 
-    >>> from pybloom import BloomFilter
+    >>> from dynamic_pybloom import BloomFilter
     >>> f = BloomFilter(capacity=1000, error_rate=0.001)
     >>> [f.add(x) for x in range(10)]
     [False, False, False, False, False, False, False, False, False, False]
@@ -36,7 +49,7 @@ functions.
     >>> (1.0 - (len(f) / float(f.capacity))) <= f.error_rate + 2e-18
     True
 
-    >>> from pybloom import ScalableBloomFilter
+    >>> from dynamic_pybloom import ScalableBloomFilter
     >>> sbf = ScalableBloomFilter(mode=ScalableBloomFilter.SMALL_SET_GROWTH)
     >>> count = 10000
     >>> for i in xrange(0, count):
@@ -44,10 +57,29 @@ functions.
     ...
     >>> (1.0 - (len(sbf) / float(count))) <= sbf.error_rate + 2e-18
     True
-
     # len(sbf) may not equal the entire input length. 0.01% error is well
     # below the default 0.1% error threshold. As the capacity goes up, the
     # error will approach 0.1%.
+
+    >>> from dynamic_pybloom import DynamicBloomFilter
+    >>> dbf = DynamicBloomFilter(base_capacity=100, max_capacity=100000, error_rate=0.001)
+    >>> dbf.add(0)
+    >>> len(dbf.filters)
+    1
+    >>> for i in xrange(1, 10000):
+    ...     _ = sbf.add(i)
+    ...
+    >>> len(dbf.filters)
+    100
+    >>> other_dbf = DynamicBloomFilter(base_capacity=100, max_capacity=100000, error_rate=0.001)
+    >>> other_dbf.add(5)
+    >>> intersection = dbf & other_dbf
+    >>> 5 in intersection
+    True
+    >>> 10 in intersection
+    False
+    # the Dynamic Bloom Filter grows as you add elements to it, but it still
+    # preserves the ability to perform intersections and unions
 
 ..
 references
