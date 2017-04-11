@@ -112,7 +112,7 @@ def make_hashfuncs(num_slices, num_bits):
 
 
 class BloomFilter(object):
-    FILE_FMT = b'<dQQQ'
+    FILE_FMT = b'<dQQQQ'
 
     def __init__(self, capacity, error_rate=0.001):
         """Implements a space-efficient probabilistic data structure
@@ -147,15 +147,16 @@ class BloomFilter(object):
         bits_per_slice = int(math.ceil(
             (capacity * abs(math.log(error_rate))) /
             (num_slices * (math.log(2) ** 2))))
-        self._setup(error_rate, num_slices, bits_per_slice, capacity)
+        self._setup(error_rate, num_slices, bits_per_slice, capacity, 0)
         self.bitarray = bitarray.bitarray(self.num_bits, endian='little')
         self.bitarray.setall(False)
 
-    def _setup(self, error_rate, num_slices, bits_per_slice, capacity):
+    def _setup(self, error_rate, num_slices, bits_per_slice, capacity, count):
         self.error_rate = error_rate
         self.num_slices = num_slices
         self.bits_per_slice = bits_per_slice
         self.capacity = capacity
+        self.count = count
         self.num_bits = num_slices * bits_per_slice
         self.make_hashes = make_hashfuncs(self.num_slices, self.bits_per_slice)
 
@@ -210,17 +211,13 @@ class BloomFilter(object):
             offset += bits_per_slice
 
         if skip_check:
+            self.count += 1
             return False
         elif not found_all_bits:
+            self.count += 1
             return False
         else:
             return True
-
-    @property
-    def count(self):
-        # from http://www.l3s.de/~papapetrou/publications/Bloomfilters-DAPD.pdf
-        return math.log(1 - float(self.bitarray.count())/len(self.bitarray)) \
-                /(self.num_slices*math.log(1 - 1./len(self.bitarray)))
 
     def copy(self):
         """Return a copy of this bloom filter.
@@ -238,6 +235,10 @@ class BloomFilter(object):
 both the same capacity and error rate")
         new_bloom = self.copy()
         new_bloom.bitarray = new_bloom.bitarray | other.bitarray
+
+        # count calculation from http://www.l3s.de/~papapetrou/publications/Bloomfilters-DAPD.pdf
+        new_bloom.count = int(math.log(1 - float(new_bloom.bitarray.count())/len(new_bloom.bitarray)) / \
+                         (new_bloom.num_slices*math.log(1 - 1./len(new_bloom.bitarray))))
         return new_bloom
 
     def __or__(self, other):
@@ -252,6 +253,10 @@ both the same capacity and error rate")
 have equal capacity and error rate")
         new_bloom = self.copy()
         new_bloom.bitarray = new_bloom.bitarray & other.bitarray
+
+        # count calculation from http://www.l3s.de/~papapetrou/publications/Bloomfilters-DAPD.pdf
+        new_bloom.count = int(math.log(1 - float(new_bloom.bitarray.count()) / len(new_bloom.bitarray)) / \
+                          (new_bloom.num_slices * math.log(1 - 1. / len(new_bloom.bitarray))))
         return new_bloom
 
     def __and__(self, other):
@@ -262,7 +267,7 @@ have equal capacity and error rate")
         are written as machine values. This is much more space
         efficient than pickling the object."""
         f.write(pack(self.FILE_FMT, self.error_rate, self.num_slices,
-                     self.bits_per_slice, self.capacity))
+                     self.bits_per_slice, self.capacity, self.count))
         (f.write(self.bitarray.tobytes()) if is_string_io(f)
          else self.bitarray.tofile(f))
 
