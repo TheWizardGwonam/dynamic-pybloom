@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 from setuptools import setup
 
-VERSION = '3.0.1'
+VERSION = '3.0.2'
 DESCRIPTION = "Dynamic Pybloom: A Suite of Probabilistic Data Structures"
 LONG_DESCRIPTION = """
-``dynamic-dynamic_pybloom`` is a fork of the popular https://travis-ci.org/jaybaird/python-bloomfilter repo module
+``dynamic-pybloom`` is a fork of the popular https://travis-ci.org/jaybaird/python-bloomfilter repo module
 that includes a Bloom Filter data structure, an implementation of the Scalable Bloom Filter[1] and
 a new implementation of the Dynamic Bloom Filter[2].
 """
