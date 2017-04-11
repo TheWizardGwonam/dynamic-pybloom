@@ -1,11 +1,13 @@
 # -*- encoding: utf-8 -*-
-"""This module implements a bloom filter probabilistic data structure and
-an a Scalable Bloom Filter that grows in size as your add more items to it
-without increasing the false positive error_rate.
+"""This module implements a bloom filter probabilistic data structure,
+a Scalable Bloom Filter that grows in size as your add more items to it
+without increasing the false positive error_rate, and a Dynamic Bloom Filter
+which allows you to grow in size while still being able to intersect and union
+to other Dynamic Bloom Filter.
 
 Requires the bitarray library: http://pypi.python.org/pypi/bitarray/
 
-    >>> from pybloom import BloomFilter
+    >>> from pybloom-git import BloomFilter
     >>> f = BloomFilter(capacity=10000, error_rate=0.001)
     >>> for i in range_fn(0, f.capacity):
     ...     _ = f.add(i)
@@ -19,7 +21,7 @@ Requires the bitarray library: http://pypi.python.org/pypi/bitarray/
     >>> (1.0 - (len(f) / float(f.capacity))) <= f.error_rate + 2e-18
     True
 
-    >>> from pybloom import ScalableBloomFilter
+    >>> from pybloom-git import ScalableBloomFilter
     >>> sbf = ScalableBloomFilter(mode=ScalableBloomFilter.SMALL_SET_GROWTH)
     >>> count = 10000
     >>> for i in range_fn(0, count):
@@ -30,6 +32,16 @@ Requires the bitarray library: http://pypi.python.org/pypi/bitarray/
     >>> len(sbf) <= count
     True
     >>> (1.0 - (len(sbf) / float(count))) <= sbf.error_rate + 2e-18
+    True
+    >>> from pybloom-git import ScalableBloomFilter
+    >>> sbf = DynamicBloomFilter()
+    >>> count = 10000
+    >>> for i in range_fn(0, count):
+    ...     _ = sbf.add(i)
+    ...
+    >>> sbf.capacity > count
+    True
+    >>> len(sbf) <= count
     True
 
 """
@@ -42,14 +54,15 @@ from struct import unpack, pack, calcsize
 try:
     import bitarray
 except ImportError:
-    raise ImportError('pybloom requires bitarray >= 0.3.4')
+    raise ImportError('pybloom-git requires bitarray >= 0.3.4')
 
-__version__ = '2.0'
-__author__  = "Jay Baird <jay.baird@me.com>, Bob Ippolito <bob@redivi.com>,\
+__version__ = '3.0'
+__author__ = "Jay Baird <jay.baird@me.com>, Bob Ippolito <bob@redivi.com>,\
                Marius Eriksen <marius@monkey.org>,\
                Alex Brasetvik <alex@brasetvik.com>,\
                Matt Bachmann <bachmann.matt@gmail.com>,\
-              "
+               Sam Findler <samuel.findler@market-predictions.com>"
+
 
 def make_hashfuncs(num_slices, num_bits):
     if num_bits >= (1 << 31):
@@ -284,6 +297,7 @@ have equal capacity and error rate")
         self.__dict__.update(d)
         self.make_hashes = make_hashfuncs(self.num_slices, self.bits_per_slice)
 
+
 class ScalableBloomFilter(object):
     SMALL_SET_GROWTH = 2 # slower, but takes up less memory
     LARGE_SET_GROWTH = 4 # faster, but takes up more memory faster
@@ -429,6 +443,192 @@ class ScalableBloomFilter(object):
     def __len__(self):
         """Returns the total number of elements stored in this SBF"""
         return sum(f.count for f in self.filters)
+
+
+class DynamicBloomFilter(object):
+    FILE_FMT = '<idQd'
+
+    def __init__(self, base_capacity=100, max_capacity=1000000, error_rate=0.001):
+
+        """ Similar to ScalableBloomFilter, except it is built out of uniform size and
+        error_rate bloom filters so that the operations of union and intersection
+        are possible.
+
+        base_capacity
+            the capacity of a single one of the bloom filters that makes up the whole filter
+        max_capacity
+            the most possible elements that can go into the filter. used in conjunction with
+            the error_rate and base capacity to determine the individual error_rates of the
+             base bloom filters
+        error_rate
+            the maximum error_rate of the filter returning false positives. as long as the
+            number of items is under the max_capacity, the error_rate will remain beneath
+            this level.
+
+        >>> b = ScalableBloomFilter(base_capacity=512, max_capacity=512*5, error_rate=0.001)
+        >>> b.add("test")
+        False
+        >>> "test" in b
+        True
+        >>> unicode_string = u'¡'
+        >>> b.add(unicode_string)
+        False
+        >>> unicode_string in b
+        True
+        """
+        if not error_rate or error_rate < 0:
+            raise ValueError("error_rate must be a decimal greater than 0.")
+        self._setup(base_capacity, max_capacity, error_rate)
+        self.filters = []
+
+    def _setup(self, base_capacity, max_capacity, error_rate):
+        self.individual_error_rate = 1 - math.exp(math.ln(1 - error_rate)/math.ceil(max_capacity/base_capacity))
+        self.max_error_rate = error_rate
+        self.max_capacity = max_capacity
+        self.base_capacity = base_capacity
+
+    def __contains__(self, key):
+        """Tests a key's membership in this bloom filter.
+
+        >>> b = ScalableBloomFilter(base_capacity=512, max_capacity=512*5, error_rate=0.001)
+        >>> b.add("hello")
+        False
+        >>> "hello" in b
+        True
+
+        """
+        for f in reversed(self.filters):
+            if key in f:
+                return True
+        return False
+
+    def add(self, key):
+        """Adds a key to this bloom filter.
+        If the key already exists in this filter it will return True.
+        Otherwise False.
+
+        >>> b = ScalableBloomFilter(base_capacity=512, max_capacity=512*5, error_rate=0.001)
+        >>> b.add("hello")
+        False
+        >>> b.add("hello")
+        True
+
+        """
+        if key in self:
+            return True
+        if not self.filters:
+            filter = BloomFilter(
+                capacity=self.base_capacity,
+                error_rate=self.individual_error_rate)
+            self.filters.append(filter)
+        else:
+            filter = self.filters[-1]
+            if filter.count >= filter.capacity:
+                filter = BloomFilter(
+                    capacity=self.base_capacity,
+                    error_rate=self.individual_error_rate)
+                self.filters.append(filter)
+        filter.add(key, skip_check=True)
+        return False
+
+    def union(self, other):
+        """ Is used to perform a union operation, will keep the error_rate of each bloom_filter
+        but you will end up with len(others.filters) + len(self.filters) number of bloom filters
+        This accounts that virtually all of the filters in each of the DBFs will be filled to capacity, though
+        it can lead to some redundancy in the individual bloom filters. keep in mind that if the count > capacity
+        after the union you have a greater possible error_rate"""
+        if self.base_capacity != other.base_capacity or \
+           self.individual_error_rate != other.individual_error_rate:
+            raise ValueError("Intersecting dynamic filters requires both filters to \
+                                  have equal base capacity and maximum_capacity")
+
+        new_bloom = DynamicBloomFilter(base_capacity=self.base_capacity,
+                                       max_capacity=self.max_capacity,
+                                       error_rate=self.max_error_rate)
+        for bloom_filter in self.filters:
+            new_bloom.filters.append(bloom_filter.copy())
+        for other_filter in other.filters:
+            new_bloom.filters.append(other_filter.copy())
+        return new_bloom
+
+    def __or__(self, other):
+        return self.union(other)
+
+    def intersection(self, other):
+        """ Calculates the intersection of the bitarrays of the base bloomfilters and returns
+        a new bloom filter object.  In principal using this should keep the error_rate and the number of
+        filters constant"""
+        if self.base_capacity != other.base_capacity or \
+           self.individual_error_rate != other.individual_error_rate:
+            raise ValueError("Intersecting dynamic filters requires both filters to \
+                              have equal base capacity and maximum_capacity")
+
+        new_bloom = DynamicBloomFilter(base_capacity=self.base_capacity,
+                                       max_capacity=self.max_capacity,
+                                       error_rate=self.max_error_rate)
+        for bloom_filter in self.filters:
+            new_bloom.filters.append(BloomFilter(capcity=self.base_capacity,
+                                                 error_rate=self.individual_error_rate))
+            for other_filter in other.filters:
+                new_bloom.filters[-1].bitarray = filter.bitarray | (bloom_filter.bitarray & other_filter.bitarray)
+        return new_bloom
+
+    def __and__(self, other):
+        return self.intersection(other)
+
+    @property
+    def capacity(self):
+        """Returns the total capacity for all filters in this DBF"""
+        return sum(f.capacity for f in self.filters)
+
+    @property
+    def count(self):
+        return len(self)
+
+    def __len__(self):
+        """Returns the total number of elements stored in this DBF"""
+        return sum(f.count for f in self.filters)
+
+    def tofile(self, f):
+        """Serialize this DynamicBloomFilter into the file-object
+        `f'."""
+        f.write(pack(self.FILE_FMT, self.base_capacity, self.max_capacity,
+                     self.max_error_rate))
+
+        # Write #-of-filters
+        f.write(pack(b'<l', len(self.filters)))
+
+        if len(self.filters) > 0:
+            # Then each filter directly, with a header describing
+            # their lengths.
+            headerpos = f.tell()
+            headerfmt = b'<' + b'Q' * (len(self.filters))
+            f.write(b'.' * calcsize(headerfmt))
+            filter_sizes = []
+            for filter in self.filters:
+                begin = f.tell()
+                filter.tofile(f)
+                filter_sizes.append(f.tell() - begin)
+
+            f.seek(headerpos)
+            f.write(pack(headerfmt, *filter_sizes))
+
+    @classmethod
+    def fromfile(cls, f):
+        """Deserialize the DynamicBloomFilter in file object `f'."""
+        filter = cls()
+        filter._setup(*unpack(cls.FILE_FMT, f.read(calcsize(cls.FILE_FMT))))
+        nfilters, = unpack(b'<l', f.read(calcsize(b'<l')))
+        if nfilters > 0:
+            header_fmt = b'<' + b'Q' * nfilters
+            bytes = f.read(calcsize(header_fmt))
+            filter_lengths = unpack(header_fmt, bytes)
+            for fl in filter_lengths:
+                filter.filters.append(BloomFilter.fromfile(f, fl))
+        else:
+            filter.filters = []
+
+        return filter
 
 
 if __name__ == "__main__":
