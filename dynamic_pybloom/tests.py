@@ -154,5 +154,24 @@ class Serialization(unittest.TestCase):
                 del(filter)
                 stream.close()
 
+class Stringification(unittest.TestCase):
+    SIZE = 12345
+    EXPECTED = set([random.randint(0, 10000100) for _ in range_fn(SIZE)])
+
+    def test_string(self):
+        for klass, args in [(BloomFilter, (self.SIZE,)),
+                            (ScalableBloomFilter, ()),
+                            (DynamicBloomFilter, ())]:
+            filter = klass(*args)
+            for item in self.EXPECTED:
+                filter.add(item)
+
+            s = str(filter)
+            del filter
+            filter = klass.from_str(s)
+            for item in self.EXPECTED:
+                self.assertTrue(item in filter)
+            del(filter)
+
 if __name__ == '__main__':
     unittest.main()

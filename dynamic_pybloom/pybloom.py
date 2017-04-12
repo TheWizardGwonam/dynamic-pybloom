@@ -50,13 +50,14 @@ import math
 import hashlib
 from dynamic_pybloom.utils import range_fn, is_string_io, running_python_3
 from struct import unpack, pack, calcsize
+from binascii import hexlify, unhexlify
 
 try:
     import bitarray
 except ImportError:
     raise ImportError('dynamic_pybloom requires bitarray >= 0.3.4')
 
-__version__ = '3.0'
+__version__ = '3.1'
 __author__ = "Jay Baird <jay.baird@me.com>, Bob Ippolito <bob@redivi.com>,\
                Marius Eriksen <marius@monkey.org>,\
                Alex Brasetvik <alex@brasetvik.com>,\
@@ -179,6 +180,30 @@ class BloomFilter(object):
                 return False
             offset += bits_per_slice
         return True
+
+    def __str__(self):
+        """
+        export as string to be sent over network or between programming languages
+        :return: compressed string representation
+        """
+        return ":".join([str(self.error_rate), str(self.num_slices),
+                        str(self.bits_per_slice), str(self.capacity),
+                        str(self.count), self.bitarray.endian(),
+                         hexlify(self.bitarray.tobytes())])
+
+    @classmethod
+    def from_str(cls, s):
+        """
+        uncompress string and make the bloom filter from it, complement to the __str__ method
+        :param s:
+        :return:
+        """
+        filter = cls(1)
+        values = s.split(":")
+        filter._setup(float(values[0]), int(values[1]), int(values[2]), int(values[3]), int(values[4]))
+        filter.bitarray = bitarray.bitarray(endian=values[5])
+        filter.bitarray.frombytes(unhexlify(values[6]))
+        return filter
 
     def __len__(self):
         """Return the number of keys stored by this bloom filter."""
@@ -407,6 +432,23 @@ class ScalableBloomFilter(object):
     def count(self):
         return len(self)
 
+    def __str__(self):
+        return ",".join([str(self.scale), str(self.ratio),
+                        str(self.initial_capacity), str(self.error_rate),
+                        "|".join([str(filter) for filter in self.filters])])
+
+    @classmethod
+    def from_str(cls, s):
+        filter = cls(1)
+        values = s.split(",")
+        filter._setup(int(values[0]), float(values[1]), int(values[2]), float(values[3]))
+        if values[4]:
+            filters = []
+            for item in values[4].split("|"):
+                filters.append(BloomFilter.from_str(item))
+        filter.filters = filters
+        return filter
+
     def tofile(self, f):
         """Serialize this ScalableBloomFilter into the file-object
         `f'."""
@@ -596,6 +638,23 @@ class DynamicBloomFilter(object):
     def __len__(self):
         """Returns the total number of elements stored in this DBF"""
         return sum(f.count for f in self.filters)
+
+    def __str__(self):
+        return ",".join([str(self.base_capacity), str(self.max_capacity),
+                        str(self.max_error_rate),
+                        "|".join([str(filter) for filter in self.filters])])
+
+    @classmethod
+    def from_str(cls, s):
+        filter = cls(1)
+        values = s.split(",")
+        filter._setup(int(values[0]), int(values[1]), float(values[2]))
+        if values[3]:
+            filters = []
+            for item in values[3].split("|"):
+                filters.append(BloomFilter.from_str(item))
+        filter.filters = filters
+        return filter
 
     def tofile(self, f):
         """Serialize this DynamicBloomFilter into the file-object
