@@ -249,6 +249,7 @@ class BloomFilter(object):
         """
         new_filter = BloomFilter(self.capacity, self.error_rate)
         new_filter.bitarray = self.bitarray.copy()
+        new_filter.count = self.count
         return new_filter
 
     def union(self, other):
@@ -595,10 +596,20 @@ class DynamicBloomFilter(object):
         new_bloom = DynamicBloomFilter(base_capacity=self.base_capacity,
                                        max_capacity=self.max_capacity,
                                        error_rate=self.max_error_rate)
-        for bloom_filter in self.filters:
-            new_bloom.filters.append(bloom_filter.copy())
-        for other_filter in other.filters:
-            new_bloom.filters.append(other_filter.copy())
+        my_filters = self.filters
+        other_filters = other.filters
+        for i in range(0, len(my_filters)):
+            found_union_mate = False
+            for j in range(0, len(other_filters)):
+                other_filter_index = len(other_filters) - 1 - j
+                union_filter = (my_filters[i] | other_filters[other_filter_index])
+                if(union_filter.count < self.capacity):
+                    other_filters[other_filter_index] = union_filter
+                    found_union_mate = True
+                    break
+            if(not found_union_mate):
+                other_filters.append(my_filters[i])
+        new_bloom.filters = other_filters
         return new_bloom
 
     def __or__(self, other):
