@@ -263,11 +263,11 @@ both the same capacity and error rate")
         new_bloom.bitarray = new_bloom.bitarray | other.bitarray
 
         # count calculation from http://www.l3s.de/~papapetrou/publications/Bloomfilters-DAPD.pdf
-        if abs(float(new_bloom.bitarray.count())/len(new_bloom.bitarray) - 1) < 1e-13:
+        try:
+            new_bloom.count = int(math.log(1 - float(new_bloom.bitarray.count()) / len(new_bloom.bitarray)) / \
+                                  (new_bloom.num_slices * math.log(1 - 1. / len(new_bloom.bitarray))))
+        except:
             new_bloom.count = len(new_bloom.bitarray)
-        else:
-            new_bloom.count = int(math.log(1 - float(new_bloom.bitarray.count())/len(new_bloom.bitarray)) / \
-                             (new_bloom.num_slices*math.log(1 - 1./len(new_bloom.bitarray))))
         return new_bloom
 
     def __or__(self, other):
@@ -284,11 +284,11 @@ have equal capacity and error rate")
         new_bloom.bitarray = new_bloom.bitarray & other.bitarray
 
         # count calculation from http://www.l3s.de/~papapetrou/publications/Bloomfilters-DAPD.pdf
-        if abs(float(new_bloom.bitarray.count())/len(new_bloom.bitarray) - 1) < 1e-13:
+        try:
+            new_bloom.count = int(math.log(1 - float(new_bloom.bitarray.count()) / len(new_bloom.bitarray)) / \
+                                  (new_bloom.num_slices * math.log(1 - 1. / len(new_bloom.bitarray))))
+        except:
             new_bloom.count = len(new_bloom.bitarray)
-        else:
-            new_bloom.count = int(math.log(1 - float(new_bloom.bitarray.count())/len(new_bloom.bitarray)) / \
-                             (new_bloom.num_slices*math.log(1 - 1./len(new_bloom.bitarray))))
         return new_bloom
 
     def __and__(self, other):
