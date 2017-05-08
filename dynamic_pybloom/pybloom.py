@@ -603,7 +603,9 @@ class DynamicBloomFilter(object):
                                        max_capacity=self.max_capacity,
                                        error_rate=self.max_error_rate)
         my_filters = self.filters
-        other_filters = other.filters
+        other_filters = []
+        for filter in other.filters:
+            other_filters.append(filter.copy())
         for i in range(0, len(my_filters)):
             found_union_mate = False
             for j in range(0, len(other_filters)):
