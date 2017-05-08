@@ -609,7 +609,7 @@ class DynamicBloomFilter(object):
             for j in range(0, len(other_filters)):
                 other_filter_index = len(other_filters) - 1 - j
                 union_filter = (my_filters[i] | other_filters[other_filter_index])
-                if(union_filter.count < self.capacity):
+                if(union_filter.count < self.base_capacity):
                     other_filters[other_filter_index] = union_filter
                     found_union_mate = True
                     break
